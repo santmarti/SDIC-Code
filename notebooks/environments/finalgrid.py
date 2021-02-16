@@ -6,8 +6,12 @@ import matplotlib.pyplot as plt
 from enum import Enum
 import itertools
 
-from insoco.Plotting import draw_layers, draw_obs
-from insoco.Environment import ACT_MODE, OBS_MODE, ACT_PLUS, OBS_PLUS, OBS_SHAPE, OBS_MEM
+try:
+    from insoco.Plotting import draw_layers, draw_obs
+    from insoco.Environment import ACT_MODE, OBS_MODE, ACT_PLUS, OBS_PLUS, OBS_SHAPE, OBS_MEM
+except ImportError as e:
+    from ..Plotting import draw_layers, draw_obs
+    from ..Environment import ACT_MODE, OBS_MODE, ACT_PLUS, OBS_PLUS, OBS_SHAPE, OBS_MEM
 
 
 class MULTIAGENT_ORDER(Enum):

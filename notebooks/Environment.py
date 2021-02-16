@@ -270,7 +270,10 @@ class Environment():
     def create_non_gym_env(self, basename):
         # The environment is not a gym environment
         if(basename == "BlackJack"):
-            from insoco.environments.blackjack import BlackjackEnv
+            try:
+                from insoco.environments.blackjack import BlackjackEnv
+            except ImportError as e:
+                from environments.blackjack import BlackjackEnv
             self.my_env = BlackjackEnv()
 
         elif(basename == "CliffWalking"):
@@ -281,34 +284,55 @@ class Environment():
             self.my_env = CliffWalkingEnv()
 
         elif(basename == "GridworldSutton"):
-            from insoco.environments.gridworld_sutton import GridworldSuttonEnv
+            try:
+                from insoco.environments.gridworld_sutton import GridworldSuttonEnv
+            except ImportError as e:
+                from environments.gridworld_sutton import GridworldSuttonEnv
             self.my_env = GridworldSuttonEnv()
 
         elif(basename == "WindyGridworld"):
-            from insoco.environments.windy_gridworld import WindyGridworldEnv
+            try:
+                from insoco.environments.windy_gridworld import WindyGridworldEnv
+            except ImportError as e:
+                from environments.windy_gridworld import WindyGridworldEnv
             self.my_env = WindyGridworldEnv()
 
         elif(basename == "SuttonSimplest"):
-            from insoco.environments.suttonsimplest import SuttonSimplestEnv
+            try:
+                from insoco.environments.suttonsimplest import SuttonSimplestEnv
+            except ImportError as e:
+                from environments.suttonsimplest import SuttonSimplestEnv
             self.my_env = SuttonSimplestEnv()
 
         elif(basename == "RockScissorsPaper"):
-            from insoco.environments.rockscissorspaper import RockScissorsPaper
+            try:
+                from insoco.environments.rockscissorspaper import RockScissorsPaper
+            except ImportError as e:
+                from environments.rockscissorspaper import RockScissorsPaper
             self.my_env = RockScissorsPaper()
 
         elif(basename == "BattleExes"):
-            from insoco.environments.battle_of_exes import BattleOfExesEnv
+            try:
+                from insoco.environments.battle_of_exes import BattleOfExesEnv
+            except ImportError as e:
+                from environments.battle_of_exes import BattleOfExesEnv
             self.my_env = BattleOfExesEnv()
 
         elif(basename == "BattleExesMin"):
-            from insoco.environments.battle_of_exes import BattleOfExesMin
+            try:
+                from insoco.environments.battle_of_exes import BattleOfExesMin
+            except ImportError as e:
+                from environments.battle_of_exes import BattleOfExesMin
             self.my_env = BattleOfExesMin(self.conf)
             obs = self.my_env.reset()
             self.my_env.observation_space = Box(low=np.inf, high=np.inf, shape = obs.shape, dtype=np.int)
             self.my_env.action_space= Discrete(2)
 
         elif(basename == "FruitCollection"):
-            from insoco.environments.fruit_collection import FruitCollectionSuperMini, FruitCollectionMini, FruitCollectionSmall, FruitCollectionLarge
+            try:
+                from insoco.environments.fruit_collection import FruitCollectionSuperMini, FruitCollectionMini, FruitCollectionSmall, FruitCollectionLarge
+            except ImportError as e:
+                from environments.fruit_collection import FruitCollectionSuperMini, FruitCollectionMini, FruitCollectionSmall, FruitCollectionLarge
             bRender = True
             bFruit, bGhost = True, False
             if(len(params) == 2):
@@ -335,7 +359,10 @@ class Environment():
             if(bRender): self.my_env.render()
 
         elif (basename == "KeyCollection"):
-            from insoco.environments.key_collect import KeyCollection
+            try:
+               from insoco.environments.key_collect import KeyCollection
+            except ImportError as e:
+                from environments.key_collect import KeyCollection
             bRender = True
             bKeys = 3
             bSize = 5
@@ -351,8 +378,11 @@ class Environment():
             if (bRender): self.my_env.render()
 
         elif(basename == "JackCarRental"):
-            from insoco.environments.jackcar import JackCarRentalEnv
-            if(params): 
+            try:
+                from insoco.environments.jackcar import JackCarRentalEnv
+            except ImportError as e:
+                from environments.jackcar import JackCarRentalEnv
+            if(params):
                 param = int(name.split('-')[1])
                 if(len(params) > 1):
                     trent = literal_eval(params[0])
@@ -364,19 +394,31 @@ class Environment():
                 self.my_env = JackCarRentalEnv()
 
         elif(basename == "TwoArms"):
-            from insoco.environments import box2d_biarms
+            try:
+                from insoco.environments import box2d_biarms
+            except ImportError as e:
+                from environments import box2d_biarms
             self.my_env = box2d_biarms.TwoArmsEnv()
 
         elif(basename == "DualCart"):
-            from insoco.environments import box2d_dualcart
+            try:
+                from insoco.environments import box2d_dualcart
+            except ImportError as e:
+                from environments import box2d_dualcart
             self.my_env = box2d_dualcart.DualCartSimEnv(multi_agent_mode=self.multi_agent_mode)
 
         elif(basename == "BimanualRobot"):
-            from insoco.environments import box2d_bimanualsim
+            try:
+                from insoco.environments import box2d_bimanualsim
+            except ImportError as e:
+                from environments import box2d_bimanualsim
             self.my_env = box2d_bimanualsim.BimanualSimEnv()
 
         elif(basename == "Wisconsin"):
-            from insoco.environments.Wisconsin import Wisconsin
+            try:
+                from insoco.environments.Wisconsin import Wisconsin
+            except ImportError as e:
+                from environments.Wisconsin import Wisconsin
             render = True
             game_len=50
             self.my_env = Wisconsin(rendering=render, gamelen=game_len)
@@ -388,7 +430,10 @@ class Environment():
             if(render == True): self.my_env.render()
 
         elif(self.name == "FinalGrid"):
-            from insoco.environments.finalgrid import FinalGrid
+            try:
+                from insoco.environments.finalgrid import FinalGrid
+            except ImportError as e:
+                from environments.finalgrid import FinalGrid
             conf = self.conf
             self.my_env = FinalGrid(conf=conf)
             self.my_env.multi_agent_mode = self.multi_agent_mode
@@ -398,7 +443,10 @@ class Environment():
             self.my_env.agent_num = 1 if "num_agents" not in conf else conf["num_agents"]
 
         elif(self.name == "Continuous1D"):
-            from insoco.environments.continuous1D import Continuous1D
+            try:
+                from insoco.environments.continuous1D import Continuous1D
+            except ImportError as e:
+                from environments.continuous1D import Continuous1D
             self.my_env = Continuous1D()
             self.my_env.observation_space = Box(low=np.inf, high=np.inf, shape=(1,), dtype=np.float)
             self.my_env.action_space = Box(low=-0.1, high=0.1, shape=(1,), dtype=np.float)

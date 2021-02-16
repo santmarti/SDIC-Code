@@ -274,7 +274,10 @@ class Environment():
             self.my_env = BlackjackEnv()
 
         elif(basename == "CliffWalking"):
-            from insoco.environments.cliff_walking import CliffWalkingEnv
+            try:
+                from insoco.environments.cliff_walking import CliffWalkingEnv
+            except ImportError as e:
+                from environments.cliff_walking import CliffWalkingEnv
             self.my_env = CliffWalkingEnv()
 
         elif(basename == "GridworldSutton"):

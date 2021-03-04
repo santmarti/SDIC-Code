@@ -66,7 +66,7 @@ def quatromatrix(visits, left, bottom, right, top, ax=None, cmap='Reds', bNorm=F
     n = left.shape[0]; m=left.shape[1]
 
     a = np.array([[0,0],[0,1],[.5,.5],[1,0],[1,1]])
-    tr = np.array([[0,1,2], [0,2,3],[2,3,4],[1,2,4]])
+    tr = np.array([[0,1,2],[0,2,3],[2,3,4],[1,2,4]])
 
     A = np.zeros((n*m*5,2))
     Tr = np.zeros((n*m*4,3))
@@ -80,19 +80,19 @@ def quatromatrix(visits, left, bottom, right, top, ax=None, cmap='Reds', bNorm=F
     C = np.c_[ left.flatten(), bottom.flatten(), 
               right.flatten(), top.flatten() ].flatten()
 
-    Cv = np.c_[ visits.flatten(), visits.flatten(), 
-              visits.flatten(), visits.flatten() ].flatten()
+    vf = visits
+    Cv = np.c_[ vf.flatten(), vf.flatten(),
+              vf.flatten(), vf.flatten() ].flatten()
 
+    plt.pcolor(0.5*visits, cmap='Greys', alpha=0.5)
     norm = None if not bNorm else colors.Normalize(vmin=0, vmax=1, clip=True)
-    plt.pcolor( 0.5*visits, cmap='Greys', alpha=0.5)
-
-    ax.triplot(A[:,0], A[:,1], Tr, mask=Cv,  color=[.7,.7,.7], alpha=0.9)
-    tripcolor = ax.tripcolor(A[:,0], A[:,1][::-1], Tr, mask=Cv, facecolors=C, cmap=cmap, alpha=0.9, norm=norm)
+    ax.triplot(A[:, 0], A[:, 1][::-1], Tr, mask=Cv,  color=[.7,.7,.7], alpha=0.9)
+    tripcolor = ax.tripcolor(A[:, 0], A[:, 1][::-1], Tr, mask=Cv, facecolors=C, cmap=cmap, alpha=0.9, norm=norm)
     ax.margins(0)
     ax.grid(True)
     return tripcolor
 
-def plotQ(env, q, mask_visits=False):
+def plotQ(env, q, mask_visits=False, min_max=None):
     nactions = env.nA
     nstates = env.nS
     state_shape = env.my_env.shape
@@ -110,6 +110,8 @@ def plotQ(env, q, mask_visits=False):
 
         for a in range(nactions):
             aq = q.predict(s)[a]
+            if min_max is not None:
+                aq = np.clip(aq, min_max[0], min_max[1])
             qmat[a][i,j] = aq
 
     fig = plt.figure(figsize=(20, 5))
@@ -124,15 +126,17 @@ def plotQ(env, q, mask_visits=False):
         nqmat = positive_qmat / (max_qmat-min_qmat + 1)
     else:
         nqmat = qmat
-    
-    visits = np.flip(visits,0)
-    mflip = [ np.flip(m,0) for m in nqmat ]
+
+    #visits = np.flip(visits,0)
+    #mflip = [ np.flip(m,0) for m in nqmat ]
+
+    mflip = nqmat
 
     # Actions of environment: UP-0,RIGHT-1,DOWN-2,LEFT-3
     # Plot function wants: left, bottom, right, top
-    tri_plot = quatromatrix(visits, mflip[3], mflip[2], mflip[1], mflip[0], ax=ax)
+    tri_plot = quatromatrix(visits, mflip[3], mflip[0], mflip[1], mflip[2], ax=ax, cmap='viridis')
 
-    ax.margins(0)
+    #ax.margins(0)
     ax.grid(False)
 
     fig.colorbar(tri_plot)

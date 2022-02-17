@@ -156,7 +156,6 @@ def seed_all(run, ini=None):
     if "seed" in run:
         ini = run["seed"]
     elif ini is None:
-        ini = np.random.randint(100)
         run["seed"] = ini
 
     run["seed"] = ini
@@ -169,11 +168,6 @@ def seed_all(run, ini=None):
         prng.seed(rseed)
     except:
         pass
-    #try:
-    #    from tensorflow import set_random_seed
-    #    set_random_seed(rseed)
-    #except:
-    #    pass
     return ini
 
 
@@ -259,7 +253,7 @@ class Environment():
             self.nA = self.my_env.nA
             self.nactions = self.nA
             self.P = self.my_env.P
-            self.shape = self.my_env.shape
+            self.grid_shape = self.my_env.grid_shape
 
         if hasattr(self,"my_env"):
             if hasattr(self.my_env,"nactions"):
@@ -270,69 +264,42 @@ class Environment():
     def create_non_gym_env(self, basename):
         # The environment is not a gym environment
         if(basename == "BlackJack"):
-            try:
-                from insoco.environments.blackjack import BlackjackEnv
-            except ImportError as e:
-                from environments.blackjack import BlackjackEnv
+            from environments.blackjack import BlackjackEnv
             self.my_env = BlackjackEnv()
 
         elif(basename == "CliffWalking"):
-            try:
-                from insoco.environments.cliff_walking import CliffWalkingEnv
-            except ImportError as e:
-                from environments.cliff_walking import CliffWalkingEnv
+            from environments.cliff_walking import CliffWalkingEnv
             self.my_env = CliffWalkingEnv()
 
         elif(basename == "GridworldSutton"):
-            try:
-                from insoco.environments.gridworld_sutton import GridworldSuttonEnv
-            except ImportError as e:
-                from environments.gridworld_sutton import GridworldSuttonEnv
+            from environments.gridworld_sutton import GridworldSuttonEnv
             self.my_env = GridworldSuttonEnv()
 
         elif(basename == "WindyGridworld"):
-            try:
-                from insoco.environments.windy_gridworld import WindyGridworldEnv
-            except ImportError as e:
-                from environments.windy_gridworld import WindyGridworldEnv
+            from environments.windy_gridworld import WindyGridworldEnv
             self.my_env = WindyGridworldEnv()
 
         elif(basename == "SuttonSimplest"):
-            try:
-                from insoco.environments.suttonsimplest import SuttonSimplestEnv
-            except ImportError as e:
-                from environments.suttonsimplest import SuttonSimplestEnv
+            from environments.suttonsimplest import SuttonSimplestEnv
             self.my_env = SuttonSimplestEnv()
 
         elif(basename == "RockScissorsPaper"):
-            try:
-                from insoco.environments.rockscissorspaper import RockScissorsPaper
-            except ImportError as e:
-                from environments.rockscissorspaper import RockScissorsPaper
+            from environments.rockscissorspaper import RockScissorsPaper
             self.my_env = RockScissorsPaper()
 
         elif(basename == "BattleExes"):
-            try:
-                from insoco.environments.battle_of_exes import BattleOfExesEnv
-            except ImportError as e:
-                from environments.battle_of_exes import BattleOfExesEnv
+            from environments.battle_of_exes import BattleOfExesEnv
             self.my_env = BattleOfExesEnv()
 
         elif(basename == "BattleExesMin"):
-            try:
-                from insoco.environments.battle_of_exes import BattleOfExesMin
-            except ImportError as e:
-                from environments.battle_of_exes import BattleOfExesMin
+            from environments.battle_of_exes import BattleOfExesMin
             self.my_env = BattleOfExesMin(self.conf)
             obs = self.my_env.reset()
             self.my_env.observation_space = Box(low=np.inf, high=np.inf, shape = obs.shape, dtype=np.int)
             self.my_env.action_space= Discrete(2)
 
         elif(basename == "FruitCollection"):
-            try:
-                from insoco.environments.fruit_collection import FruitCollectionSuperMini, FruitCollectionMini, FruitCollectionSmall, FruitCollectionLarge
-            except ImportError as e:
-                from environments.fruit_collection import FruitCollectionSuperMini, FruitCollectionMini, FruitCollectionSmall, FruitCollectionLarge
+            from environments.fruit_collection import FruitCollectionSuperMini, FruitCollectionMini, FruitCollectionSmall, FruitCollectionLarge
             bRender = True
             bFruit, bGhost = True, False
             if(len(params) == 2):
@@ -359,10 +326,7 @@ class Environment():
             if(bRender): self.my_env.render()
 
         elif (basename == "KeyCollection"):
-            try:
-               from insoco.environments.key_collect import KeyCollection
-            except ImportError as e:
-                from environments.key_collect import KeyCollection
+            from environments.key_collect import KeyCollection
             bRender = True
             bKeys = 3
             bSize = 5
@@ -378,10 +342,7 @@ class Environment():
             if (bRender): self.my_env.render()
 
         elif(basename == "JackCarRental"):
-            try:
-                from insoco.environments.jackcar import JackCarRentalEnv
-            except ImportError as e:
-                from environments.jackcar import JackCarRentalEnv
+            from environments.jackcar import JackCarRentalEnv
             if(params):
                 param = int(name.split('-')[1])
                 if(len(params) > 1):
@@ -394,31 +355,19 @@ class Environment():
                 self.my_env = JackCarRentalEnv()
 
         elif(basename == "TwoArms"):
-            try:
-                from insoco.environments import box2d_biarms
-            except ImportError as e:
-                from environments import box2d_biarms
+            from environments import box2d_biarms
             self.my_env = box2d_biarms.TwoArmsEnv()
 
         elif(basename == "DualCart"):
-            try:
-                from insoco.environments import box2d_dualcart
-            except ImportError as e:
-                from environments import box2d_dualcart
+            from environments import box2d_dualcart
             self.my_env = box2d_dualcart.DualCartSimEnv(multi_agent_mode=self.multi_agent_mode)
 
         elif(basename == "BimanualRobot"):
-            try:
-                from insoco.environments import box2d_bimanualsim
-            except ImportError as e:
-                from environments import box2d_bimanualsim
+            from environments import box2d_bimanualsim
             self.my_env = box2d_bimanualsim.BimanualSimEnv()
 
         elif(basename == "Wisconsin"):
-            try:
-                from insoco.environments.Wisconsin import Wisconsin
-            except ImportError as e:
-                from environments.Wisconsin import Wisconsin
+            from environments.Wisconsin import Wisconsin
             render = True
             game_len=50
             self.my_env = Wisconsin(rendering=render, gamelen=game_len)
@@ -430,23 +379,21 @@ class Environment():
             if(render == True): self.my_env.render()
 
         elif(self.name == "FinalGrid"):
-            try:
-                from insoco.environments.finalgrid import FinalGrid
-            except ImportError as e:
-                from environments.finalgrid import FinalGrid
+            from environments.finalgrid import FinalGrid
             conf = self.conf
             self.my_env = FinalGrid(conf=conf)
             self.my_env.multi_agent_mode = self.multi_agent_mode
             obs = self.my_env.reset()
+            self.my_env.grid_shape = obs.shape[1:] # We eliminate the channel dimension for final grid
             self.my_env.observation_space = Box(low=np.inf, high=np.inf, shape=obs.shape, dtype=np.float)
             self.my_env.action_space = Discrete(self.my_env.nactions)
             self.my_env.agent_num = 1 if "num_agents" not in conf else conf["num_agents"]
+            self.nA = self.my_env.nactions
+            self.nS = conf["rows"]*conf["cols"]
+
 
         elif(self.name == "Continuous1D"):
-            try:
-                from insoco.environments.continuous1D import Continuous1D
-            except ImportError as e:
-                from environments.continuous1D import Continuous1D
+            from environments.continuous1D import Continuous1D
             self.my_env = Continuous1D()
             self.my_env.observation_space = Box(low=np.inf, high=np.inf, shape=(1,), dtype=np.float)
             self.my_env.action_space = Box(low=-0.1, high=0.1, shape=(1,), dtype=np.float)
@@ -538,7 +485,7 @@ class Environment():
 
         if "simulation_folder" in run:
             if return_folder:
-                if not run["simulation_folder"][-1] is "/":
+                if run["simulation_folder"][-1] != "/":
                     run["simulation_folder"] += "/"
 
             root_folder = "./" if not "root_folder" in run else run["root_folder"]
@@ -561,12 +508,6 @@ class Environment():
                             "freq_action_list": [],
                             "freq_step_list": [],
                             "freq_time_list": []}
-
-            if "update" in conf and conf["update"] is "forest_fire":
-                run["stats"]["run_trees_mean_list"] = []
-                run["stats"]["run_trees_std_list"] = []
-                run["stats"]["run_fires_mean_list"] = []
-                run["stats"]["run_fires_std_list"] = []
 
         if build_database:
             run["episode_db"] = True
@@ -611,7 +552,7 @@ class Environment():
                 stats[freq_str] += [s]
 
                 str_log += " " + t + ": " 
-                if t is "reward" and self.num_agents > 3:
+                if t == "reward" and self.num_agents > 3:
                     str_log += str(round(min(s),1)) + " / " + str(round(np.mean(s), 1)) + " / " + str(round(max(s),1))
                 else:
                     str_log += str(s)
@@ -840,19 +781,24 @@ class Environment():
 
 
 
-    def ini_observation_seed(self, seed=7):
+    def ini_observation_seed(self, seed=None, debug=False):
         # for seeding / history / keras needs reversed obs / i_episode counting = 0
         # environment may have been created without reversion
         if "run" not in self.conf:
-            self.conf["run"] = {}
+            self.conf["run"] = {}            
 
         conf, run = self.conf, self.conf["run"]
-        num_agents = conf["num_agents"]
+        num_agents = conf["num_agents"] if "num_agents" in conf else 1
+
+        if seed == None:
+            seed = np.random.randint(100)
+            if "seed" in run:
+                del run["seed"]
+            if "RandomState" in run:
+                del run["RandomState"]
 
         obs = self.my_env.reset()
-        if num_agents > 1:
-            print("Initializse Observation Shape Before: ", obs.shape, "   (num_agents, ch, obs_rows, obs_cols),    obs_row = 1 + 2*obs_radius")
-        else:
+        if debug:
             print("Initializse Observation Shape Before: ", obs.shape, "   (ch, obs_rows, obs_cols),    obs_row = 1 + 2*obs_radius")
 
 
@@ -881,8 +827,9 @@ class Environment():
         self.my_env.observation_space = Box(low=np.inf, high=np.inf, shape=obs.shape, dtype=np.float)
         self.observation_space = self.my_env.observation_space
 
-        str_shape = "  (num_agents, obs_rows, obs_cols, ch)" if bReverse else "  (num_agents, ch, obs_rows, obs_cols)"
-        print("----------- Observation Shape After:", obs.shape,  str_shape)
+        if debug:
+            str_shape = "  (num_agents, obs_rows, obs_cols, ch)" if bReverse else "  (num_agents, ch, obs_rows, obs_cols)"
+            print("----------- Observation Shape After:", obs.shape,  str_shape)
 
         self.i_episode = -1
         seed_all(run, seed)
@@ -892,10 +839,10 @@ class Environment():
     #  Dirty Access functions section
 
     def index2state(self, index):
-        return np.unravel_index(index, self.my_env.shape)
+        return np.unravel_index(index, self.my_env.grid_shape)
 
     def state2index(self, state):
-        return np.ravel_multi_index(state, self.my_env.shape)
+        return np.ravel_multi_index(state, self.my_env.grid_shape)
 
     def getGridSize(self):
         if(self.basename in ["FruitCollection"]):

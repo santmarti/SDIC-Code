@@ -12,10 +12,7 @@ from matplotlib.axis import Tick
 from matplotlib.offsetbox import TextArea, DrawingArea, OffsetImage, AnnotationBbox
 import matplotlib.image as mpimg
 
-try:
-    from insoco.Environment import ACT_MODE, OBS_MODE, ACT_PLUS
-except ImportError as e:
-    from Environment import ACT_MODE, OBS_MODE, ACT_PLUS
+from Environment import ACT_MODE, OBS_MODE, ACT_PLUS
 
 font = {'family': 'Bitstream Vera Sans', 'size': 20}
 x_lim, y_lim = (-4, 4), (-1.5, 5.5)
@@ -95,7 +92,7 @@ def quatromatrix(visits, left, bottom, right, top, ax=None, cmap='Reds', bNorm=F
 def plotQ(env, q, mask_visits=False, min_max=None):
     nactions = env.nA
     nstates = env.nS
-    state_shape = env.my_env.shape
+    state_shape = env.my_env.grid_shape
     #print("Shape of state space: " + str(state_shape))
 
     qmat = [np.zeros(state_shape) for i in range(nactions)]
@@ -108,34 +105,21 @@ def plotQ(env, q, mask_visits=False, min_max=None):
         if(mask_visits):
             visits[i,j] = 0 if q.visited(s) else 1
 
-        for a in range(nactions):
+        actions =  [3,0,1,2] if env.name.startswith("CliffWalking") else [3,2,1,0]   # Actions of cliff environment: UP-0,RIGHT-1,DOWN-2,LEFT-3
+        for ai,a in enumerate(actions):
             aq = q.predict(s)[a]
             if min_max is not None:
                 aq = np.clip(aq, min_max[0], min_max[1])
-            qmat[a][i,j] = aq
+            qmat[ai][i,j] = aq
 
     fig = plt.figure(figsize=(20, 5))
     ax = plt.axes()
     ax.set_aspect("equal")
 
-    bNomralize = False
-    if(bNomralize == True):
-        min_qmat = np.min(qmat)
-        max_qmat = np.max(qmat)
-        positive_qmat = qmat + min_qmat
-        nqmat = positive_qmat / (max_qmat-min_qmat + 1)
-    else:
-        nqmat = qmat
-
-    #visits = np.flip(visits,0)
-    #mflip = [ np.flip(m,0) for m in nqmat ]
-
-    mflip = nqmat
-
-    # Actions of environment: UP-0,RIGHT-1,DOWN-2,LEFT-3
-    # Plot function wants: left, bottom, right, top
-    tri_plot = quatromatrix(visits, mflip[3], mflip[0], mflip[1], mflip[2], ax=ax, cmap='viridis')
-
+    # Actions of cliff environment: UP-0,RIGHT-1,DOWN-2,LEFT-3
+    # Plot function wants: left, bottom, right, top 
+    tri_plot = quatromatrix(visits, qmat[0], qmat[1], qmat[2], qmat[3], ax=ax, cmap='viridis')
+    
     #ax.margins(0)
     ax.grid(False)
 

@@ -29,20 +29,20 @@ class GridworldSuttonEnv(discrete.DiscreteEnv):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, shape=[4,4]):
-        if not isinstance(shape, (list, tuple)) or not len(shape) == 2:
-            raise ValueError('shape argument must be a list/tuple of length 2')
+    def __init__(self, grid_shape=[4,4]):
+        if not isinstance(grid_shape, (list, tuple)) or not len(grid_shape) == 2:
+            raise ValueError('grid_shape argument must be a list/tuple of length 2')
 
-        self.shape = shape
+        self.grid_shape = grid_shape
 
-        nS = np.prod(shape)
+        nS = np.prod(grid_shape)
         nA = 4
 
-        MAX_Y = shape[0]
-        MAX_X = shape[1]
+        MAX_Y = grid_shape[0]
+        MAX_X = grid_shape[1]
 
         P = {}
-        grid = np.arange(nS).reshape(shape)
+        grid = np.arange(nS).reshape(grid_shape)
         it = np.nditer(grid, flags=['multi_index'])
 
         while not it.finished:
@@ -88,7 +88,7 @@ class GridworldSuttonEnv(discrete.DiscreteEnv):
 
         outfile = StringIO() if mode == 'ansi' else sys.stdout
 
-        grid = np.arange(self.nS).reshape(self.shape)
+        grid = np.arange(self.nS).reshape(self.grid_shape)
         it = np.nditer(grid, flags=['multi_index'])
         while not it.finished:
             s = it.iterindex
@@ -103,12 +103,12 @@ class GridworldSuttonEnv(discrete.DiscreteEnv):
 
             if x == 0:
                 output = output.lstrip() 
-            if x == self.shape[1] - 1:
+            if x == self.grid_shape[1] - 1:
                 output = output.rstrip()
 
             outfile.write(output)
 
-            if x == self.shape[1] - 1:
+            if x == self.grid_shape[1] - 1:
                 outfile.write("\n")
 
             it.iternext()

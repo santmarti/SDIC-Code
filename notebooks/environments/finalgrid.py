@@ -6,12 +6,8 @@ import matplotlib.pyplot as plt
 from enum import Enum
 import itertools
 
-try:
-    from insoco.Plotting import draw_layers, draw_obs
-    from insoco.Environment import ACT_MODE, OBS_MODE, ACT_PLUS, OBS_PLUS, OBS_SHAPE, OBS_MEM
-except ImportError as e:
-    from Plotting import draw_layers, draw_obs
-    from Environment import ACT_MODE, OBS_MODE, ACT_PLUS, OBS_PLUS, OBS_SHAPE, OBS_MEM
+from Plotting import draw_layers, draw_obs
+from Environment import ACT_MODE, OBS_MODE, ACT_PLUS, OBS_PLUS, OBS_SHAPE, OBS_MEM
 
 
 class MULTIAGENT_ORDER(Enum):
@@ -246,6 +242,7 @@ class FinalGrid():
 
         self.epi_elpased_time = time.time()
         self.nepisode += 1
+        self.grid_shape = (self.rows,self.cols)
 
         if self.num_agents == 1:
             # Special case for one agent NO multi_agent_mode: step is used
@@ -253,7 +250,8 @@ class FinalGrid():
             if not hasattr(self, "multi_agent_mode") or not self.multi_agent_mode:
                 self.state = np.stack(list(self.layers.values()))  # define state that is other wise done in step
                 # special return for one agent when NO multi_agent_mode
-                return self.obs_astype(self.generate_obs())
+                obs = self.generate_obs()
+                return self.obs_astype(obs)
 
         return self.obs_astype(self.generate_multiobs())
 
@@ -947,7 +945,7 @@ class FinalGrid():
         return np.stack(ch_list)
 
     def generate_obs(self):
-        if self.obs_mode is OBS_MODE.GLOBAL:
+        if self.obs_mode == OBS_MODE.GLOBAL:
             return self.state
         elif self.obs_mode is OBS_MODE.GLOBAL_ID:
             return np.array([self.get_global_id()])
@@ -963,12 +961,12 @@ class FinalGrid():
         bPad = not self.torus
         obs = self.gridworld_center_view(padding=bPad)
         obs = self.crop_radius(obs, r=self.obs_radius)
+
         if self.obs_plus not in [OBS_PLUS.NO_ORIENTATION]:
             obs = self.set_ego_agents(obs)                    # on the fly agent orientation calculation
 
         if self.obs_plus in [OBS_PLUS.ONE_HOT_BOTH]:          # one hot encoding of both floor, agents and orientation
             obs = self.set_one_hot(obs)
-
 
         if self.obs_mode == OBS_MODE.LOCAL:
             return obs

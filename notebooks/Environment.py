@@ -183,11 +183,11 @@ class Environment():
         self.fig = None
 
         envids = [spec.id for spec in gym.envs.registry.all()]
-        if (name in envids):
+        if name in envids:
             print(name, "is an openai gym registered environment")
             self.my_env = gym.make(name)
         else:
-            self.create_non_gym_env(basename)
+            self.create_non_gym_env(basename, params)
 
         self.action_space = self.my_env.action_space
         self.observation_space = self.my_env.observation_space
@@ -253,7 +253,8 @@ class Environment():
             self.nA = self.my_env.nA
             self.nactions = self.nA
             self.P = self.my_env.P
-            self.grid_shape = self.my_env.grid_shape
+            if hasattr(self.my_env,"grid_shape"):
+                self.grid_shape = self.my_env.grid_shape
 
         if hasattr(self,"my_env"):
             if hasattr(self.my_env,"nactions"):
@@ -261,7 +262,7 @@ class Environment():
             if hasattr(self.my_env,"num_agents"):
                 self.num_agents = self.my_env.num_agents
 
-    def create_non_gym_env(self, basename):
+    def create_non_gym_env(self, basename, params=None):
         # The environment is not a gym environment
         if(basename == "BlackJack"):
             from environments.blackjack import BlackjackEnv
@@ -281,6 +282,7 @@ class Environment():
 
         elif(basename == "SuttonSimplest"):
             from environments.suttonsimplest import SuttonSimplestEnv
+            self.max_steps = 1000
             self.my_env = SuttonSimplestEnv()
 
         elif(basename == "RockScissorsPaper"):
@@ -343,9 +345,9 @@ class Environment():
 
         elif(basename == "JackCarRental"):
             from environments.jackcar import JackCarRentalEnv
-            if(params):
-                param = int(name.split('-')[1])
-                if(len(params) > 1):
+            if params:
+                param = int(self.name.split('-')[1])
+                if len(params) > 1:
                     trent = literal_eval(params[0])
                     tret = literal_eval(params[1])
                     self.my_env = JackCarRentalEnv(max_cars = param, rents_per_day = trent, returns_per_day = tret)

@@ -105,13 +105,13 @@ class JackCarRentalEnv(discrete.DiscreteEnv):
 
         self.max_cars = max_cars
         self.max_move_cars = int(max_cars / 4)
-        self.shape = (max_cars+1,max_cars+1)
+        self.grid_shape = (max_cars+1,max_cars+1)
         self.rents_per_day = rents_per_day
         self.returns_per_day = returns_per_day
 
         print("Initialized JackCarRental Environment : %d max_cars %d max_moving cars"%(max_cars,self.max_move_cars))
 
-        nS = np.prod(self.shape)
+        nS = np.prod(self.grid_shape)
         nA = len(np.arange(-self.max_move_cars, self.max_move_cars + 1))
 
         # pre-build the rentals/returns pmf for each location
@@ -119,7 +119,7 @@ class JackCarRentalEnv(discrete.DiscreteEnv):
 
         P = {}
         for s_index in range(nS):
-            s = np.unravel_index(s_index, self.shape)
+            s = np.unravel_index(s_index, self.grid_shape)
             P[s_index] = { a : [] for a in range(nA) }
 
             max_a = min(self.max_move_cars, s[0], max_cars-s[1])
@@ -133,7 +133,7 @@ class JackCarRentalEnv(discrete.DiscreteEnv):
                 for sp in t_model:
                     p = t_model[sp]
                     r = r_model[sp]
-                    sp_index = np.ravel_multi_index(sp,self.shape)
+                    sp_index = np.ravel_multi_index(sp,self.grid_shape)
                     P[s_index][a].append([p, sp_index, r, False])
 
         isd = np.zeros(nS)

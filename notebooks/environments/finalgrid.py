@@ -5,6 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from enum import Enum
 import itertools
+from collections import OrderedDict
+
+#from numba import jit
 
 from Plotting import draw_layers, draw_obs
 from Environment import ACT_MODE, OBS_MODE, ACT_PLUS, OBS_PLUS, OBS_SHAPE, OBS_MEM
@@ -21,57 +24,10 @@ def log_rand():
 
 class FinalGrid():
 
-    def set_obs(self):
-        conf = self.conf
-        self.obs_mode = OBS_MODE.GLOBAL
-        self.obs_plus = OBS_PLUS.SAME
-        if "obs_plus" in conf:
-            self.obs_plus = conf["obs_plus"]
-
-        if "obs_mode" not in conf:
-            conf["obs_mode"] = OBS_MODE.GLOBAL
-
-        self.obs_mode = conf["obs_mode"]
-
-        if "obs_radius" in conf:
-            self.obs_radius = conf["obs_radius"]
-        elif self.obs_mode not in OBS_MODE.global_family():
-            self.obs_radius = 1
-            conf["obs_radius"] = 1
-
-        if "obs_radius_plus" in conf:
-            self.obs_radius_plus = conf["obs_radius_plus"]
-
-
-        if self.obs_mode in [OBS_MODE.LOCAL_ONE_HOT, OBS_MODE.LOCAL_SUM_ONE_HOT, OBS_MODE.LOCAL_ID]:
-            self.state_map = {}   # for one hot encoding 
-
-    def set_actions(self):
-        conf = self.conf
-        self.action_mode = ACT_MODE.ALLOCENTRIC
-        self.action_plus = ACT_PLUS.SAME
-        if "action_mode" in conf: self.action_mode = conf["action_mode"]
-        if "action_plus" in conf: self.action_plus = conf["action_plus"]
-        self.nactions = 4
-        if self.action_mode is ACT_MODE.EGOCENTRIC:
-            self.nactions = 3
-        if "objects" in conf or "keys" in conf or "boxes" in conf:
-            self.nactions += 1
-        if self.action_plus in [ACT_PLUS.NOTHING_RANDOM, ACT_PLUS.NOTHING_RANDOM_HARVEST]:
-            self.nactions = 2
-            if self.action_plus == ACT_PLUS.NOTHING_RANDOM_HARVEST:
-                self.nactions += 1
-        if self.action_plus in [ACT_PLUS.FOREST_FIRE, ACT_PLUS.NOTHING_OBS_RADIUS]:
-            self.nactions += 1
-
-    def obs_astype(self, s):
-        return s.astype(int)
-
-
-
     def __init__(self, conf={}):
         self.conf = conf
-        self.layers = {}
+        self.layers = OrderedDict()
+
         self.fig = None
         self.num_agents = 1 if "num_agents" not in conf else conf["num_agents"]
         self.moves = (np.array([0, -1]),np.array([0, 1]), np.array([-1, 0]), np.array([1, 0]))
@@ -109,25 +65,83 @@ class FinalGrid():
             if isinstance(self.term_mode, str):
                 self.term_mode = {self.term_mode}
 
-        if "update" in conf and conf["update"] is "forest_fire":
+        if "update" in conf and conf["update"] == "forest_fire":
             if not "fire" in self.reward:
                 self.reward["fire"] = -10
             if not "tree" in self.reward:
                 self.reward["tree"] = 0.5
 
-        if "walls" in conf:  
+        if "walls" in conf:
             if isinstance(conf["walls"], str):
                 conf["walls"] = [conf["walls"]]
 
-        if "floor" in conf:  
+        if "floor" in conf:
             if isinstance(conf["floor"], str):
                 conf["floor"] = [conf["floor"]]
         else:
             self.floor = None
 
+        if "drop_action" in conf:
+            if isinstance(conf["drop_action"], str):
+                conf["drop_action"] = {conf["drop_action"]}
+
         self.nepisode = 0
-        self.actions = [0] *  self.num_agents
+        self.actions = [0] * self.num_agents
         self.reset()
+
+
+    def set_obs(self):
+        conf = self.conf
+        self.obs_mode = OBS_MODE.GLOBAL
+        self.obs_plus = OBS_PLUS.SAME
+        if "obs_plus" in conf:
+            self.obs_plus = conf["obs_plus"]
+
+        if "obs_mode" not in conf:
+            conf["obs_mode"] = OBS_MODE.GLOBAL
+
+        self.obs_mode = conf["obs_mode"]
+
+        if "obs_radius" in conf:
+            self.obs_radius = min(conf["obs_radius"], int(self.rows/2))
+            conf["obs_radius"] = self.obs_radius
+
+        elif self.obs_mode not in OBS_MODE.global_family():
+            self.obs_radius = 1
+            conf["obs_radius"] = 1
+
+        if "obs_radius_plus" in conf:
+            self.obs_radius_plus = conf["obs_radius_plus"]
+
+
+        if self.obs_mode in [OBS_MODE.LOCAL_ONE_HOT, OBS_MODE.LOCAL_SUM_ONE_HOT, OBS_MODE.LOCAL_ID]:
+            self.state_map = {}   # for one hot encoding 
+
+    def set_actions(self):
+        conf = self.conf
+        self.action_mode = ACT_MODE.ALLOCENTRIC
+        self.action_plus = ACT_PLUS.SAME
+        if "action_mode" in conf: self.action_mode = conf["action_mode"]
+        if "action_plus" in conf: self.action_plus = conf["action_plus"]
+        self.nactions = 4
+        if self.action_mode is ACT_MODE.EGOCENTRIC:
+            self.nactions = 3
+        if "objects" in conf or "keys" in conf or "boxes" in conf:
+            self.nactions += 1
+        if "drop_action" in conf and "automatic" in conf["drop_action"]:
+            self.nactions -= 1
+        if self.action_plus in [ACT_PLUS.NOTHING_RANDOM, ACT_PLUS.NOTHING_RANDOM_HARVEST]:
+            self.nactions = 2
+            if self.action_plus == ACT_PLUS.NOTHING_RANDOM_HARVEST:
+                self.nactions += 1
+        if self.action_plus in [ACT_PLUS.FOREST_FIRE, ACT_PLUS.NOTHING_OBS_RADIUS]:
+            self.nactions += 1
+
+    def obs_astype(self, s):
+        if self.obs_mode != OBS_MODE.LOCAL_ONION:
+            return s.astype(int)
+        else:
+            return s
 
     def reset_gol(self):
         conf, ini_cells = self.conf, 10
@@ -141,6 +155,7 @@ class FinalGrid():
         conf["floor"] = []
         self.add_floor([])
         self.layers["floor"] = self.floor
+        self.grid_sum = np.zeros([3, self.rows, self.cols])
 
         self.sample_probs, self.prob_tree_ini, self.prob_fire, self.prob_tree, self.prob_harvest = False, 0.0, 0.0, 0.0, 0.5
 
@@ -190,7 +205,8 @@ class FinalGrid():
 
     def reset(self, params={}):
         # Environment can be reseted during a conf["run"] and stats may be wanted run["stats"]
-        self.layers = {}
+        self.layers = OrderedDict()
+
         conf = self.conf
         if "run" in conf:
             if "stats" in conf["run"]:
@@ -229,9 +245,9 @@ class FinalGrid():
             self.tolman_reward_triggered = False
 
         if "update" in conf:
-            if conf["update"] is "game_of_life":
+            if conf["update"] == "game_of_life":
                 self.reset_gol()
-            if conf["update"] is "forest_fire":
+            if conf["update"] == "forest_fire":
                 self.reset_ff()
 
         if "goal_sequence" in self.term_mode:
@@ -240,18 +256,19 @@ class FinalGrid():
         for i in range(self.num_agents):
             self.ini_agent(i, params=params)
 
+        self.agent_xy = self.agents_xy[0]
         self.epi_elpased_time = time.time()
         self.nepisode += 1
-        self.grid_shape = (self.rows,self.cols)
 
         if self.num_agents == 1:
             # Special case for one agent NO multi_agent_mode: step is used
             # and obs is directly the observation and not a list of observations
             if not hasattr(self, "multi_agent_mode") or not self.multi_agent_mode:
-                self.state = np.stack(list(self.layers.values()))  # define state that is other wise done in step
+                # define state that is other wise done in step
+                layers_names = self.get_layers_names()
+                self.state = np.stack([self.layers[k] for k in layers_names])  # was giving problems:  self.state = np.stack(list(self.layers.values()))  
                 # special return for one agent when NO multi_agent_mode
-                obs = self.generate_obs()
-                return self.obs_astype(obs)
+                return self.obs_astype(self.generate_obs())
 
         return self.obs_astype(self.generate_multiobs())
 
@@ -262,9 +279,13 @@ class FinalGrid():
         if "objects" not in self.layers: return reward, done
         if self.objects[x,y] == 0: return reward, done         # to drop we need to carry something
 
-        if(self.action_mode == ACT_MODE.ALLOCENTRIC):
+        if self.action_mode == ACT_MODE.ALLOCENTRIC:
             # implement
             return reward, done
+
+        if "drop_action" in self.conf:
+            if "automatic" in self.conf["drop_action"]:
+                return reward, done
 
         xn, yn = self.agent_xy + self.agent_dir
         if not self.free_cell([xn, yn]): return reward, done         # free cell so drop
@@ -272,34 +293,38 @@ class FinalGrid():
         self.layers["objects"][xn,yn] = self.layers["objects"][x,y]
         self.layers["objects"][x,y] = 0
 
-        if "floor" in self.conf:                 
-            if "object_areas" in self.conf["floor"]:      # ants world
-                nareas = self.conf["floor"]["object_areas"]
-                obj = self.objects[xn,yn]
-                ifloor = self.floor[xn,yn]
-                if obj == ifloor:
+        if "floor" in self.conf:
+            ifloor = self.floor[xn, yn]
+            obj = self.objects[xn, yn] if hasattr(self, "objects") else None
+            if obj == ifloor:
+                if "blocks" in self.term_mode and "empty" in self.term_mode:
+                    self.objects[xn, yn] = 0   # remove object
+                if "object_areas" in self.conf["floor"]:          # ants world
                     reward += 1
                     self.objects[xn,yn] += 1
-                    if self.objects[xn,yn] == nareas:              # reached end area
-                        self.objects[xn,yn] = 0  # remove object
+                    if self.objects[xn,yn] == self.conf["floor"]["object_areas"]:  # reached end area
+                        self.objects[xn,yn] = 0     # remove object
+
+            if obj != ifloor:
+                if "blocks" in self.term_mode or "object_areas" in self.conf["floor"]:
+                    reward -= 0.05
+
 
         return reward, done
 
     def is_move_valid(self, move):
-        x,y = self.agent_xy
-        xn,yn = self.agent_xy + move
+        x, y = self.agent_xy
+        xn, yn = self.agent_xy + move
         if self.torus:
             xn, yn = xn % self.rows, yn % self.cols
-
         valid_move = xn >= 0 and yn >= 0 and xn < self.rows and yn < self.cols
-        if(not valid_move):
+        if not valid_move:
             return False
 
         valid_move = valid_move and self.layers["agents"][xn, yn] == 0
-        if ("walls" in self.layers):
+        if "walls" in self.layers:
             valid_move = valid_move and self.layers["walls"][xn, yn] == 0
-
-        if ("objects" in self.layers):
+        if "objects" in self.layers:
             valid_obj = self.layers["objects"][xn, yn] > 0 and self.layers["objects"][x, y] == 0
             valid_obj = valid_obj or self.layers["objects"][xn, yn] == 0
             valid_move = valid_move and valid_obj
@@ -353,8 +378,8 @@ class FinalGrid():
 
     def move_agent(self, move):
         reward, done = 0.0, False
-        x,y = self.agent_xy
-        xn,yn = self.agent_xy + move
+        x, y = self.agent_xy
+        xn, yn = self.agent_xy + move
         if self.torus:
             xn, yn = xn % self.rows, yn % self.cols
 
@@ -364,18 +389,25 @@ class FinalGrid():
 
         if "objects" in self.layers:
             obj_old_pos = self.layers["objects"][x, y]
-            if (obj_old_pos > 0):
+            obj_new_pos = self.layers["objects"][xn, yn]
+            if obj_old_pos == 0 and obj_new_pos > 0:
+                reward += 10 * abs(self.reward["step"])
+            if obj_old_pos > 0:
                 self.layers["objects"][x, y] = 0
                 self.layers["objects"][xn, yn] = obj_old_pos
+                if "drop_action" in self.conf and "automatic" in self.conf["drop_action"]:
+                    if obj_old_pos == self.floor[xn, yn]:
+                        self.layers["objects"][xn, yn] = 0
 
         if "food" in self.layers:
-
+            bLogReward = hasattr(self, "stats")
             if "food_info" in self.conf:
                 for f in self.conf["food_info"]:
-                    if (f["coor"][0],f["coor"][1]) == (xn,yn):
+                    if (f["coor"][0], f["coor"][1]) == (xn, yn):
                         reward += f["rew"]
             else:
                 reward += self.layers["food"][xn, yn]
+                if bLogReward: self.stats["episode"]["each_agent"][self.agent_i]["rewards"]["fruit"] += 1
 
             self.layers["food"][xn, yn] = 0
 
@@ -437,7 +469,7 @@ class FinalGrid():
 
 
     def change_floor(self):
-        if "update" in self.conf and self.conf["update"] is "forest_fire":   # harvest
+        if "update" in self.conf and self.conf["update"] == "forest_fire":   # harvest
             if self.action_mode == ACT_MODE.EGOCENTRIC:
                 self.harvest_in_front()
             else:
@@ -464,7 +496,7 @@ class FinalGrid():
             if a == 0:
                 self.agent_dir = np.array([-dy, dx])  # order: 1:[0,1] 2:[-1,0] 3:[0,-1] 4:[1,0]
                 self.agents[x, y] += 1
-                if (self.agents[x, y] >= 5):
+                if self.agents[x, y] >= 5:
                     self.agents[x, y] = 1
             elif a == 1:
                 self.agent_dir = np.array([dy, -dx])  
@@ -499,40 +531,10 @@ class FinalGrid():
         return reward, done
 
 
-    def add_row_col_zero(self, ex, ey, z, state):
-        if ex == 1 and ey == 1:
-            z[:,:-1,:-1] = state
-            return z
-        elif ex == 1 and ey == 0:
-            z[:,:-1,:] = state
-            return z
-        elif ex == 0 and ey == 1:
-            z[:,:,:-1] = state
-            return z
-
-    def add_row_col_roll(self, ex, ey, z, state):
-        if ex == 1:
-            z[:,-1,:] = state[:,0,:]
-
-        if ey == 1:
-            z[:,:,-1] = state[:,:,0]
-
-        return z
-
-    def pad_shift(self, agent_xy):
-        rows_cols = self.rows_cols
-        ex, ey = (rows_cols+1) % 2   # odd row, odd col
-        pos = np.array(agent_xy)
-        center = (rows_cols - [1, 1] + [ex, ey]) / 2.0
-        cx, cy = center.astype(int)
-        shift = (center - pos).astype(int)
-        return ex, ey, cx, cy, shift
-
-
     def generate_state_array(self, layers_names):
         layers_list = []
         for k in layers_names:   # state order in layers names
-            if k is "agents" and self.action_mode == ACT_MODE.EGOCENTRIC:
+            if k == "agents" and self.action_mode == ACT_MODE.EGOCENTRIC:
                 d = self.get_orientation()
                 layers_list.append(np.array(self.agents_orientation[d-1]))
             else:
@@ -541,60 +543,13 @@ class FinalGrid():
         return np.stack(layers_list)
 
 
-    def gridworld_center_view(self, padding=False):
-        state = self.state
-
-        ex, ey, cx, cy, shift = self.pad_shift(self.agent_xy)
-
-        if padding:
-            r = max(cx,cy)
-            pad = ((0,0), (r,r), (r,r))    # No padding for the first dimension / feature channels
-            state = np.pad(state, pad_width=pad, mode="constant", constant_values=0)
-
-        centeredview = []
-        for i in range(state.shape[0]):    # if there is enough padding it shifts normally, otherwise it wraps around/rolls over
-            centered = np.roll(state[i], shift, axis=(0,1))
-            centeredview.append(centered)
-
-        state = np.stack(centeredview)
-
-        if any([ex,ey]) and self.obs_mode in [OBS_MODE.GLOBAL_CENTER_PAD, OBS_MODE.GLOBAL_CENTER_WRAP]:
-            z = np.zeros(np.array(state.shape) + [0, ex, ey])
-            state = self.add_row_col_zero(ex, ey, z, state)
-            if self.torus:
-                state = self.add_row_col_roll(ex, ey, z, state)
-
-        return state
-
-    def crop_radius(self, obs, r=1):
-        layers = []
-        center = np.array(obs.shape[1:])/2
-        cx, cy = int(center[0]), int(center[1])   # How much to pad each side, distance from center is enough to shift the whole state without rolling over
-
-        # 1, 2, 3, 4   assigned rotations
-        # 3, 2, 1, 0   4-d
-        # 0, 3, 2, 1   (4-d+1)%4
-
-        for i,o in enumerate(obs):
-            l = [int(cx - r), int(cx + r + 1), int(cy - r), int(cy + r + 1)]
-            sight = o[l[0]:l[1], l[2]:l[3]]
-            if self.action_mode == ACT_MODE.EGOCENTRIC:
-                x, y = self.agent_xy
-                d = int(self.layers["agents"][x,y])
-                sight = np.rot90(sight, (5-d) % 4, axes=(0, 1))
-
-            layers.append(sight)
-
-        return np.stack(layers)
-
-
     def get_layers_names(self):
         layers_names = list(self.layers.keys())
         bOneAgentNotGlobal = self.obs_mode not in OBS_MODE.global_family() and self.num_agents <= 1
         if self.obs_plus in [OBS_PLUS.NO_AGENTS] or bOneAgentNotGlobal:
             if "agents" in layers_names:
                 layers_names.remove("agents")
-        if hasattr(self, "obs_radius") and self.obs_radius < 1: # we cannot be in a wall
+        if hasattr(self, "obs_radius") and self.obs_radius < 1:   # we cannot be in a wall
             layers_names.remove("walls")
         return layers_names
 
@@ -603,7 +558,6 @@ class FinalGrid():
     def set_ego_layers(self):
         if self.action_mode != ACT_MODE.EGOCENTRIC or self.num_agents < 2:
             return
-
         self.agents_orientation = []
         for d in [1,2,3,4]:
             a = np.array(self.layers["agents"])
@@ -625,7 +579,7 @@ class FinalGrid():
         ox, oy = obs[0].shape
         ox, oy = int(ox/2), int(oy/2)
         d = int(obs[i_agent_layer][ox][oy])
-        obs[i_agent_layer][ox][oy] = 0
+        obs[i_agent_layer][ox][oy] = 0        # agent is obviously in the center
 
         xs, ys = np.nonzero(obs[i_agent_layer])
         for x,y in zip(xs,ys):
@@ -701,6 +655,28 @@ class FinalGrid():
         obs_sum = np.array(obs_sum[l:]).astype(int)
         return obs_sum
 
+
+    def radius_onion(self, s):
+        r = self.rows-1-self.obs_radius
+        subs = s.astype(float)
+        gamma = 0.999
+        expg = gamma ** r
+        for _ in range(r):
+            subrs = []
+            for sub in subs:
+                subr = sub[1:-1, 1:-1]
+                cr = subr.shape[0]
+                for _ in range(4):
+                    for t in range(cr):
+                        subr[t, 0] += expg * np.mean(sub[t:t + 3, 0])
+                    subr = np.rot90(subr)
+                    sub = np.rot90(sub)
+                subrs.append(subr)
+            expg /= gamma
+            subs = subrs
+        return np.array(subs)
+
+
     def one_hot_map(self, obs, r=1, max_states=100):
         o = tuple(obs.flatten())
         if o not in self.state_map:
@@ -735,10 +711,12 @@ class FinalGrid():
         self.agents[x_n, y_n] = 1
         self.agent_xy = xy_new
         if self.action_mode is ACT_MODE.EGOCENTRIC:
+            dirs = [[0, 1], [-1, 0], [0, -1], [1, 0]]
             if orientation is not None and orientation in [1, 2, 3, 4]:
                 self.agents[x_n, y_n] = orientation
-                dirs = [[0,1], [-1,0], [0,-1], [1,0]]
                 self.agent_dir = dirs[orientation-1]
+            else:
+                self.agent_dir = dirs[np.random.randint(4)]
 
         if incr_radius is not None:
             self.obs_radius += incr_radius
@@ -753,6 +731,7 @@ class FinalGrid():
         return obs
 
     def set_agent_local(self, i):
+        self.agent_i = i
         self.agent_xy = self.agents_xy[i]
         self.agent_xy_old = self.agent_xy.copy()
         self.action = self.actions[i]
@@ -847,7 +826,7 @@ class FinalGrid():
         agents_obs = self.layers["agents_obs"]
 
         for xy in self.agents_xy:
-            _, _, cx, cy, shift = self.pad_shift(xy)
+            _, _, cx, cy, shift = pad_shift(xy, self.rows_cols)
             agents_obs = np.roll(agents_obs, shift, axis=(0, 1))
             v = 0.1
             r = self.obs_radius
@@ -935,9 +914,9 @@ class FinalGrid():
         ch_list = []
         for i, l_name in enumerate(layers_names):  # state order in layers names
             obs_ch = obs[i,:,:]
-            if l_name is "floor":
+            if l_name == "floor":
                 self.add_channels(ch_list, obs_ch, 2)   # adding 2 channels || ch_list: current ch list / obs_ch: current channel
-            elif l_name is "agents":
+            elif l_name == "agents":
                 self.add_greater_zero(ch_list, obs_ch)
                 self.add_channels(ch_list, obs_ch, 4)   # adding 4 channels
             else:
@@ -945,7 +924,7 @@ class FinalGrid():
         return np.stack(ch_list)
 
     def generate_obs(self):
-        if self.obs_mode == OBS_MODE.GLOBAL:
+        if self.obs_mode is OBS_MODE.GLOBAL:                  # first serve the GLOBAL variations
             return self.state
         elif self.obs_mode is OBS_MODE.GLOBAL_ID:
             return np.array([self.get_global_id()])
@@ -954,13 +933,22 @@ class FinalGrid():
         elif self.obs_mode is OBS_MODE.GLOBAL_ID_EGO:
             return np.array(self.get_global_id_ego())
         elif self.obs_mode is OBS_MODE.GLOBAL_CENTER_PAD:
-            return self.gridworld_center_view(padding=True)
+            return gridworld_center_view(self.state, self.agent_xy, self.obs_mode, padding=True, torus=self.torus)
         elif self.obs_mode is OBS_MODE.GLOBAL_CENTER_WRAP:
-            return self.gridworld_center_view(padding=False)
+            return gridworld_center_view(self.state, self.agent_xy, self.obs_mode, padding=False, torus=self.torus)
 
-        bPad = not self.torus
-        obs = self.gridworld_center_view(padding=bPad)
-        obs = self.crop_radius(obs, r=self.obs_radius)
+        # **************************  Lets continue with LOCAL observations
+        dir = None
+        if self.action_mode == ACT_MODE.EGOCENTRIC:
+            dir = int(self.layers["agents"][self.agent_xy[0], self.agent_xy[1]])
+
+        (i,j),r  = self.agent_xy, self.obs_radius
+
+        if self.obs_mode == OBS_MODE.LOCAL_ONION:
+            obs = center_crop(i, j, self.rows-1, O=self.state, dir=dir, padding=True, torus=self.torus)
+            return self.radius_onion(obs)
+
+        obs = center_crop(i, j, r, O=self.state, dir=dir, torus=self.torus)
 
         if self.obs_plus not in [OBS_PLUS.NO_ORIENTATION]:
             obs = self.set_ego_agents(obs)                    # on the fly agent orientation calculation
@@ -1042,14 +1030,17 @@ class FinalGrid():
                 done = True
                 reward += gid_states[tuple(gid)]
 
-        if "update" in self.conf and self.conf["update"] is "forest_fire" and self.num_agents > 0:
+        if "update" in self.conf and self.conf["update"] == "forest_fire" and self.num_agents > 0:
+            bLogReward = hasattr(self, "stats")
+
             x_old, y_old = self.agent_xy_old
-            if self.floor[x_old, y_old] == 2 and self.floor_old[x, y] == 2:
+            if self.layers["floor"][x, y] == 2 or (self.floor[x_old, y_old] == 2 and self.floor_old[x, y] == 2):
                 reward += self.reward["fire"]
-            if self.layers["floor"][x, y] == 2:
-                reward += self.reward["fire"]
+                if bLogReward: self.stats["episode"]["each_agent"][self.agent_i]["rewards"]["fire"] += 1
+
             if self.layers["floor"][x, y] in [1,3]:
                 reward += self.reward["tree"]
+                if bLogReward: self.stats["episode"]["each_agent"][self.agent_i]["rewards"]["tree"] += 1
 
         if "ratio_trees" in self.term_mode and hasattr(self, "current_num_trees"):
             p = self.term_mode["ratio_trees"] * self.rows * self.cols
@@ -1149,6 +1140,7 @@ class FinalGrid():
         obs = self.obs_astype(self.generate_obs())
         self.actions_undo(a)
 
+        self.obs = obs
         obs, reward, done, infos = self.tolman_check(obs, reward, done)
         return obs, reward, done, infos
 
@@ -1188,6 +1180,16 @@ class FinalGrid():
         reward, done = self.process_action(a)
         reward, done = self.check_term(reward, done)
         reward += self.reward["step"]  # usually a negative reward or 0
+
+        if hasattr(self, "stats") and hasattr(self, "floor"):  # update (forest gol) has been done before step_one_multi
+            xy = self.agent_xy
+            if self.floor:
+                c = int(self.floor[xy[0]][xy[1]])
+                stats_epi = self.stats["episode"]
+                stats_epi["floor_occupation"][c] += 1
+                stats_epi["each_agent"][self.agent_i]["floor_occupation"][c] += 1
+                #print("agent_i", self.agent_i, "    ", stats_epi["each_agent"][self.agent_i]["floor_occupation"])
+
         return None, reward, done, None
 
     def step_zero_multi(self):
@@ -1240,14 +1242,13 @@ class FinalGrid():
     def free_cell(self, xy, check_layers = ["agents", "walls", "food", "objects", "enemies"]):
         x, y = xy  
         free = x >= 0 and y >= 0 and x < self.rows and y < self.cols
-        if(not free): return False
+        if not free: return False
         for lstr in check_layers:
-                if (lstr in self.layers):
+                if lstr in self.layers:
                     free = free and self.layers[lstr][x, y] == 0
         return free
 
     def find_free_cell(self, check_layers=["agents", "walls", "food", "objects", "floor", "enemies"], params={}):
-
         if "set_ini_pos" in params:
             if self.num_agents > 1:
                 print("WARNING set_ini_pos called with", self.num_agents, "agents")
@@ -1297,7 +1298,7 @@ class FinalGrid():
             self.agents = np.zeros([self.rows, self.cols])
             self.agents_xy = self.num_agents * [0]
             if self.action_mode is ACT_MODE.EGOCENTRIC:
-                self.agents_dir = self.num_agents * [1, 0]
+                self.agents_dir = self.num_agents*[1,0]
             self.layers["agents"] = self.agents
 
         check_layers = ["agents", "walls", "food", "objects", "floor", "enemies"]
@@ -1317,13 +1318,16 @@ class FinalGrid():
 
         self.agents_xy[i] = np.array([x, y])
         if self.action_mode is ACT_MODE.EGOCENTRIC:
-            self.agents_dir[i] = np.array([0, 1])
-
-        self.agent_xy = self.agents_xy[0]
-        if self.action_mode is ACT_MODE.EGOCENTRIC:
-            self.agent_dir = self.agents_dir[0]
-
-        self.agents[x, y] = 1
+            dirs = [[0, 1], [-1, 0], [0, -1], [1, 0]]     # agent initialization special for forest fire: Random
+            orient = 0
+            if "update" in self.conf and self.conf["update"] == "forest_fire":
+                orient = np.random.randint(4)
+            dir =  dirs[orient]
+            self.agent_dir = dir
+            self.agents_dir[i] = dir
+            self.agents[x, y] = orient+1
+        else:
+            self.agents[x, y] = 1
 
 
     def add_floor(self, mode):
@@ -1348,7 +1352,7 @@ class FinalGrid():
             self.floor[int(self.rows/2),0] = 0
 
         if "exit" in mode:
-            if mode["exit"] is "dynaq":
+            if mode["exit"] == "dynaq":
                 self.floor[1, -2] += 1
                 self.floor[3, 1] = 0
             else:
@@ -1384,14 +1388,12 @@ class FinalGrid():
             if "objects" not in self.conf:
                 print("Blocks World termination mode needs key objects:num")
                 sys.exit(0)
-
             nobj = self.conf["objects"]
-            ncolors = self.rows
+            ncolors = self.rows if "ncolors" not in self.conf else self.conf["ncolors"]
             for _ in range(nobj):
                 i = self.cols-1
-                while not any(self.floor[:,i] == 0):
+                while not any(self.floor[:, i] == 0):
                     i -= 1
-
                 j = np.random.randint(self.rows)
                 while self.floor[j, i] > 0:
                     j = np.random.randint(self.rows)
@@ -1419,14 +1421,12 @@ class FinalGrid():
             if "blocks" in self.term_mode:
                 if self.cols < 4:
                     check_layers.remove("floor")
-
             i, j = self.find_free_cell(check_layers=check_layers)
             self.objects[i, j] = 1
 
         if "blocks" in self.term_mode:
-            r = int(self.rows/2-1)
-            l = list(map(int,self.floor[r:,:].flatten()))
-            while 0 in l :
+            l = list(map(int,self.floor.flatten()))
+            while 0 in l:
                 l.remove(0)
 
             iobjs,jobjs = np.nonzero(self.objects)
@@ -1623,7 +1623,7 @@ class FinalGrid():
             if "step_freq" in params:
                 step_freq = params["step_freq"]
 
-        if self.conf["update"] is "forest_fire":
+        if self.conf["update"] == "forest_fire":
             if self.num_agents > 0:
                 x_old, y_old = self.agent_xy
                 self.floor_xy_old = self.floor[x_old, y_old]
@@ -1633,9 +1633,9 @@ class FinalGrid():
             if step_freq <= 0:
                 steps = abs(step_freq)+1
             for _ in range(steps):
-                if self.conf["update"] is "game_of_life":
+                if self.conf["update"] == "game_of_life":
                     self.update_gol()
-                if self.conf["update"] is "forest_fire":
+                if self.conf["update"] == "forest_fire":
                     self.update_forest()
 
 
@@ -1662,43 +1662,6 @@ class FinalGrid():
             print("Error Layer does not exist")
             return None
 
-    def neighbour_fire(self, i, j, grid, bMoore=False):
-        N, M = self.rows, self.cols
-        neigh_fire = False
-
-        if bMoore:
-            neigh_fire = any(grid[max(0,i-1):i+2,max(0,j-1):j+2].flatten() == 2)  # Moore neighbourhood
-        else:
-            if i > 0:
-                neigh_fire = neigh_fire or grid[i - 1, j] == 2
-            if i < N - 1:
-                neigh_fire = neigh_fire or grid[i + 1, j] == 2
-            if j > 0:
-                neigh_fire = neigh_fire or grid[i, j - 1] == 2
-            if j < M - 1:
-                neigh_fire = neigh_fire or grid[i, j + 1] == 2
-
-        if self.torus and not neigh_fire:
-            if bMoore:
-                if i == 0:
-                    neigh_fire = neigh_fire or any(grid[-1:, max(0, j - 1):j + 2].flatten() == 2)
-                elif i == N - 1:
-                    neigh_fire = neigh_fire or any(grid[:1, max(0, j - 1):j + 2].flatten() == 2)
-                if j == 0:
-                    neigh_fire = neigh_fire or any(grid[max(0, i - 1):i + 2, -1:].flatten() == 2)
-                elif j == M - 1:
-                    neigh_fire = neigh_fire or any(grid[max(0, i - 1):i + 2, :1].flatten() == 2)
-            else:
-                if i == 0:
-                    neigh_fire = neigh_fire or grid[N - 1, j] == 2
-                elif i == N - 1:
-                    neigh_fire = neigh_fire or grid[0, j] == 2
-                if j == 0:
-                    neigh_fire = neigh_fire or grid[i, M - 1] == 2
-                elif j == M - 1:
-                    neigh_fire = neigh_fire or grid[i, 0] == 2
-
-        return neigh_fire
 
     def update_forest(self):
         grid = self.floor
@@ -1722,9 +1685,19 @@ class FinalGrid():
                         grid[i, j] = 1
                 elif grid_old[i, j] == 1:
                     grid[i, j] = 1
-                    if np.random.rand() <= self.prob_fire and self.agents[i, j] == 0:
-                        grid[i, j] = 2
-                    elif self.neighbour_fire(i, j, grid_old):  # fire propagation
+                    if self.agents[i, j] == 0 and np.random.rand() <= self.prob_fire:
+                        if "only_bottom" in self.conf["update_params"]:
+                            if i==N-1:
+                                grid[i, j] = 2
+                        elif "only_corner_cell" in self.conf["update_params"]:
+                            if i == N-1 and j == M-1:
+                                grid[i, j] = 2
+                        elif "only_corner" in self.conf["update_params"]:
+                            if i >= N-2 and j >= M-2:
+                                grid[i, j] = 2
+                        else:
+                            grid[i, j] = 2
+                    elif neighbour_fire(i, j, grid_old, torus=self.torus):  # fire propagation
                         grid[i, j] = 2
 
                 if "update_params" in self.conf:
@@ -1742,15 +1715,20 @@ class FinalGrid():
                     else:
                         self.food[i, j] = 0
 
-                if grid[i,j] == 1:
-                    self.current_num_trees += 1
 
-                if hasattr(self,"stats"):
+                if grid[i,j] == 1:
+                    self.grid_sum[0, i, j] += 1
+                    self.current_num_trees += 1      # extra variable to keep track if there are no trees
+                elif grid[i,j] == 2:
+                    self.grid_sum[1, i, j] += 1
+                if self.agents[i,j] == 1:
+                    self.grid_sum[2, i, j] += 1
+
+                if hasattr(self, "stats"):
                     if grid[i,j] == 1:
                         self.stats["current_num_trees"] += 1
                     elif grid[i,j] == 2:
                         self.stats["current_num_fires"] += 1
-
         if N == 3:
             grid[1, 1] = 0
 
@@ -1786,7 +1764,7 @@ class FinalGrid():
         return  np.sum(dists), np.std(dists)
 
 
-    def state_summary(self, S, agents, each):
+    def state_summary_stats(self, S, agents, each):
         maxv = 3 if self.obs_plus is not OBS_PLUS.ONE_HOT_BOTH else 1
         stats_epi = self.stats["episode"]
 
@@ -1801,9 +1779,9 @@ class FinalGrid():
         stats_epi["sum_range"][maxv] += (self.state > 0)
 
         for i,o in enumerate(S):
-            if agents["obs"]["sum_range"] is None:
-                # agents obs sum_range (values, rows, cols, ch)
+            if agents["obs"]["sum_range"] is None:   # agents obs sum_range (values, rows, cols, ch)
                 agents["obs"]["sum_range"] = [np.zeros_like(o) for _ in range(maxv+1)]
+            if each[i]["obs"]["sum_range"] is None:
                 each[i]["obs"]["sum_range"] = [np.zeros_like(o) for _ in range(maxv+1)]
 
             # shape is (2*obs_radius + 1, 2*obs_radius + 1, ch)
@@ -1821,7 +1799,6 @@ class FinalGrid():
 
         #print("agents[obs][sum_range]-----------")        
         #print(np.array(agents["obs"]["sum_range"])[0,:,:,0])
-
         #print(np.sum(agents["obs"]["sum_range"][0]))
         #print("n_sums",stats_epi["n_sums"])
         #print("[sum_range][0][0]", stats_epi["sum_range"][0][0])
@@ -1871,11 +1848,12 @@ class FinalGrid():
         for i in range(self.num_agents):
             _each[i]["obs"]["sum_range"] = None   # each agents count
             _each[i]["obs"]["n_sums"] = -1
+            _each[i]["rewards"] = {"tree": 0, "fire": 0, "fruit": 0}
 
         if "update" in self.conf:
-            if self.conf["update"] is "forest_fire":
+            if self.conf["update"] == "forest_fire":
                 stats_epi["trees_list"] = []  # global CA trees counts 
-                stats_epi["fires_list"] = []  # global CA fires counts 
+                stats_epi["fires_list"] = []  # global CA fires counts
 
     def stats_update(self, S, A, r, done=False):
         stats, stats_epi = self.stats, self.stats["episode"]
@@ -1889,19 +1867,20 @@ class FinalGrid():
             _agents["mean_dist_sum"] += dmean
             _agents["std_dist_sum"] += dstd
 
-        self.state_summary(S, _agents, _each)                  
+        self.state_summary_stats(S, _agents, _each)
 
         if "update" in self.conf:
-            if self.conf["update"] is "forest_fire":
+            if self.conf["update"] == "forest_fire":
                 stats_epi["trees_list"] += [stats["current_num_trees"]]
                 stats_epi["fires_list"] += [stats["current_num_fires"]]
-                
-                if done and "run_trees_mean_list" in stats:
-                    trees_list, fires_list = stats_epi["trees_list"], stats_epi["fires_list"]                    
-                    stats["run_trees_mean_list"] += [np.mean(trees_list)]
-                    stats["run_trees_std_list"] += [np.std(trees_list)]
-                    stats["run_fires_mean_list"] += [np.mean(fires_list)]
-                    stats["run_fires_std_list"] += [np.std(fires_list)]
+                if done:
+                    stats_epi["grid_sum"] = self.grid_sum
+                    if "run_trees_mean_list" in stats:
+                        trees_list, fires_list = stats_epi["trees_list"], stats_epi["fires_list"]
+                        stats["run_trees_mean_list"] += [np.mean(trees_list)]
+                        stats["run_trees_std_list"] += [np.std(trees_list)]
+                        stats["run_fires_mean_list"] += [np.mean(fires_list)]
+                        stats["run_fires_std_list"] += [np.std(fires_list)]
 
     def plot_ascii(self):
         print("shape of state:", np.array(list(self.layers.values())).shape, "\n")
@@ -1931,24 +1910,23 @@ class FinalGrid():
         ax = self.clear_plt()
         ax = plt.subplot(1, 2, 1)
         draw_layers(self.conf, self.layers, agents_xy=self.agents_xy, actions=self.actions, ax=ax, enemy_info=self.enemy_database)
+
         ax = plt.subplot(1, 2, 2)
         ax.set_yticklabels([])
         ax.set_xticklabels([])
-
         if hasattr(self, "obs"):
             draw_obs(self, self.obs[0], ax=ax)
         plt.show()
         plt.pause(0.001)
 
-    def render_fig(self, fig_param, params={}):
+    def render_fig(self, fig_param, params={}, bForce=False):
         agents_xy = self.get_agents_xy()
-        new_fig_size = fig_param.get_size_inches()
+        new_fig_size = fig_param.get_size_inches() if not bForce else [1000]
         if min(new_fig_size) > 1:
             draw_layers(self.conf, self.layers, agents_xy=agents_xy, enemy_info=self.enemy_database, actions=self.actions, params=params)
-        if min(new_fig_size) > 1 or self.t % 100 == 0:
+        if min(new_fig_size) > 1 or self.t % 500 == 0 or bForce:   # self.t % 500 is for having window focus enabled
             fig_param.canvas.draw()
             plt.pause(0.001)
-
 
     def render(self, fig_param=None, params={}):
         agents_xy = self.get_agents_xy()
@@ -1960,7 +1938,6 @@ class FinalGrid():
             #self.render_twofig()
         else:                               # is axes
             draw_layers(self.conf, self.layers, agents_xy=agents_xy, actions=self.actions, ax=fig_param, enemy_info=self.enemy_database, params=params)
-
 
     def make_id(self):
         conf = self.conf
@@ -1993,3 +1970,111 @@ class FinalGrid():
     def close(self):
         pass
 
+
+
+def center_crop(i, j, r, O, dir=None, torus=True, padding=False):
+    if not torus or padding:
+        pad = ((0, 0), (r+1, r+1), (r+1, r+1))  # No padding for the first dimension / feature channels
+        O = np.pad(O, pad_width=pad, mode="constant", constant_values=1) # changed for two tunnels
+        i,j = i+r+1, j+r+1
+
+    o = O.take(np.arange(i-r,i+r+1), axis=1, mode='wrap')
+    o = o.take(np.arange(j-r,j+r+1), axis=2, mode='wrap')
+    if dir is not None:
+        o = np.rot90(o, (5 - dir) % 4, axes=(1, 2))
+    return o
+
+
+#@jit(nopython=True)
+def add_row_col_zero(ex, ey, z, state):
+    if ex == 1 and ey == 1:
+        z[:,:-1,:-1] = state
+    elif ex == 1 and ey == 0:
+        z[:,:-1,:] = state
+    elif ex == 0 and ey == 1:
+        z[:,:,:-1] = state
+    return z
+
+#@jit(nopython=True)
+def add_row_col_roll(ex, ey, z, state):
+    if ex == 1:
+        z[:,-1,:] = state[:,0,:]
+    if ey == 1:
+        z[:,:,-1] = state[:,:,0]
+    return z
+
+#@jit(nopython=True)
+def pad_shift(agent_xy, rows_cols):
+    ex, ey = (rows_cols+1) % 2   # odd row, odd col
+    cx, cy = (rows_cols - np.array([1, 1]) + np.array([ex, ey])) / 2.0
+    shift = np.array([int(cx), int(cy)]) - agent_xy
+    return ex, ey, int(cx), int(cy), shift
+
+
+#@jit(nopython=True)
+def gridworld_center_view(state, agent_xy, obs_mode, torus=False, padding=False):
+    rows_cols = np.array(state.shape[1:])
+    ex, ey, cx, cy, shift = pad_shift(agent_xy, rows_cols)
+    if padding:
+        r = max(cx,cy)
+        pad = ((0,0), (r,r), (r,r))    # No padding for the first dimension / feature channels
+        state = np.pad(state, pad_width=pad, mode="constant", constant_values=0)
+
+    #state = np.roll(state, (0,0,shift[0]), axis=(0,0,1))   # rows shift of shift[0] rows
+    #state = np.roll(state, (0,0,shift[1]), axis=(0,0,-1))  # cols shift
+
+    centeredview = np.zeros(state.shape)
+    for i in range(state.shape[0]):    # if there is enough padding it shifts normally, otherwise it wraps around/rolls over
+        centered = np.roll(state[i], shift, axis=(0,1))
+        centeredview[i,:,:] = centered
+    state = centeredview
+
+    if np.any([ex,ey]) and obs_mode in [OBS_MODE.GLOBAL_CENTER_PAD, OBS_MODE.GLOBAL_CENTER_WRAP]:
+        z = np.zeros(np.array(state.shape) + [0, ex, ey])
+        state = add_row_col_zero(ex, ey, z, state)
+        if torus:
+            state = add_row_col_roll(ex, ey, z, state)
+
+    return state
+
+
+
+
+#@jit(nopython=True)
+def neighbour_fire(i, j, grid, torus=False, moore=False):
+    N, M = grid.shape
+    neigh_fire = False
+
+    if moore:
+        neigh_fire = np.any(grid[max(0,i-1):i+2,max(0,j-1):j+2].flatten() == 2)  # Moore neighbourhood
+    else:
+        if i > 0:
+            neigh_fire = neigh_fire or grid[i - 1, j] == 2
+        if i < N - 1:
+            neigh_fire = neigh_fire or grid[i + 1, j] == 2
+        if j > 0:
+            neigh_fire = neigh_fire or grid[i, j - 1] == 2
+        if j < M - 1:
+            neigh_fire = neigh_fire or grid[i, j + 1] == 2
+
+    if torus and not neigh_fire:
+        if moore:
+            if i == 0:
+                neigh_fire = neigh_fire or np.any(grid[-1:, max(0, j - 1):j + 2].flatten() == 2)
+            elif i == N - 1:
+                neigh_fire = neigh_fire or np.any(grid[:1, max(0, j - 1):j + 2].flatten() == 2)
+            if j == 0:
+                neigh_fire = neigh_fire or np.any(grid[max(0, i - 1):i + 2, -1:].flatten() == 2)
+            elif j == M - 1:
+                neigh_fire = neigh_fire or np.any(grid[max(0, i - 1):i + 2, :1].flatten() == 2)
+        else:
+            if i == 0:
+                neigh_fire = neigh_fire or grid[N - 1, j] == 2
+            elif i == N - 1:
+                neigh_fire = neigh_fire or grid[0, j] == 2
+            if j == 0:
+                neigh_fire = neigh_fire or grid[i, M - 1] == 2
+            elif j == M - 1:
+                neigh_fire = neigh_fire or grid[i, 0] == 2
+
+    return neigh_fire

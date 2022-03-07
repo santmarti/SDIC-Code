@@ -29,7 +29,6 @@ import pickle
 
 from enum import Enum
 
-
 class OBS_MODE(Enum):
     GLOBAL = 0
     GLOBAL_ID = 1
@@ -43,7 +42,8 @@ class OBS_MODE(Enum):
     LOCAL_ID = 9
     LOCAL_SUM_MOORE = 10
     LOCAL_SUM_ONION = 11
-    GLOBAL_COORDINATE = 12
+    LOCAL_ONION = 12
+    GLOBAL_COORDINATE = 13
 
     def id(om):
         if om is OBS_MODE.GLOBAL: return 'g'
@@ -58,6 +58,7 @@ class OBS_MODE(Enum):
         elif om is OBS_MODE.LOCAL_ID: return 'lid'
         elif om is OBS_MODE.LOCAL_SUM_MOORE: return 'lsmoore'
         elif om is OBS_MODE.LOCAL_SUM_ONION: return 'lsonion'
+        elif om is OBS_MODE.LOCAL_ONION: return 'lonion'
         elif om is OBS_MODE.GLOBAL_COORDINATE: return "gcor"
         return "Not Defined"
 
@@ -107,11 +108,11 @@ class ACT_MODE(Enum):
 
 class ACT_PLUS(Enum):
     SAME = 0
-    PLUS_DO_NOTHING = 1
-    NOTHING_RANDOM = 2           # do nothing or move random according to ACT_MODE
-    NOTHING_RANDOM_HARVEST = 3   # not move, random, harvest
-    FOREST_FIRE = 4              # add harvest to ACT_MODE
-    NOTHING_OBS_RADIUS = 5       # do nothing but get higher radius observation
+    PLUS_DO_NOTHING = 2
+    NOTHING_RANDOM = 3           # do nothing or move random according to ACT_MODE
+    NOTHING_RANDOM_HARVEST = 4   # not move, random, harvest
+    FOREST_FIRE = 5              # add harvest to ACT_MODE
+    NOTHING_OBS_RADIUS = 6       # do nothing but get higher radius observation
 
     def id(act):
         if act is ACT_PLUS.PLUS_DO_NOTHING : return 'no'
@@ -392,7 +393,6 @@ class Environment():
             self.my_env.agent_num = 1 if "num_agents" not in conf else conf["num_agents"]
             self.nA = self.my_env.nactions
             self.nS = conf["rows"]*conf["cols"]
-
 
         elif(self.name == "Continuous1D"):
             from environments.continuous1D import Continuous1D

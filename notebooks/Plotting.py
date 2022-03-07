@@ -644,3 +644,16 @@ def plotMatrix(M, axis_ticks=None, axis_labels=None, lim=[None, None], bColorBar
     else:
         plt.xlabel(axis_labels[0])
         plt.ylabel(axis_labels[1])
+
+
+
+def plot(td_list, ax=None, color=None, label=None, title=None, xlabel='Updates', ylabel='Error', ylim=None, marker=None):
+    if ax == None:
+        _, ax = plt.subplots()
+    plt.plot(td_list, label=label, color=color, marker=marker)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    if title: plt.title(title)
+    if label: plt.legend()
+    if ylim is not None: ax.set_ylim(ylim)
+    return ax
